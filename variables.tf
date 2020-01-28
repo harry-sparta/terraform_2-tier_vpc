@@ -7,8 +7,9 @@
   # Name tags
 variable "name" {
   type = string
-  default = "eng48-harry-li-node-sample-app"
+  default = "eng48-harry-li-2tier-vpc"
 }
+
   # AMI - instance not required currently 28.01.2019
 #variable "ami_nodesample" {
 #  type = string

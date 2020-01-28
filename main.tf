@@ -25,74 +25,10 @@ resource "aws_subnet" "app_subnet" {
 # Create a subnet - private subnet
 resource "aws_subnet" "private_subnet" {
   vpc_id  = aws_vpc.app_vpc.id
-  cidr_block  = "10.0.0.0/24"
+  cidr_block  = "10.0.1.0/24"
   availability_zone = "eu-west-1a"
   tags  = {
     Name = var.name
-  }
-}
-
-# Create security group for app_subnet (public)
-resource "aws_security_group" "app_security_group" {
-  description = "Allow TLS inbound traffic"
-  vpc_id  = aws_vpc.app_vpc.id
-  tags  = {
-    Name = var.name
-    }
-
-  ingress {
-    # TLS (change to whatever ports you need)
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_block = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    # TLS (change to whatever ports you need)
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_block = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_block     = ["0.0.0.0/0"]
-  }
-}
-
-# Create security group for app_subnet (public)
-resource "aws_security_group" "private_security_group" {
-  description = "Allow TLS inbound traffic"
-  vpc_id  = aws_vpc.app_vpc.id
-  tags  = {
-    Name = var.name
-    }
-
-  ingress {
-    # TLS (change to whatever ports you need)
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_block = [aws_subnet.app_subnet.cidr_block]
-  }
-
-  ingress {
-    # TLS (change to whatever ports you need)
-    from_port   = 27017
-    to_port     = 27017
-    protocol    = "tcp"
-    cidr_block = [aws_subnet.app_subnet.cidr_block]
-  }
-
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_block     = ["0.0.0.0/0"]
   }
 }
 
@@ -123,10 +59,6 @@ resource "aws_route_table" "app_route" {
 resource "aws_route_table" "private_route" {
   vpc_id  = aws_vpc.app_vpc.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-  }
-
   tags = {
     Name = "${var.name} - route (with no internet)"
   }
@@ -142,4 +74,60 @@ resource "aws_route_table_association" "app_route_assoc" {
 resource "aws_route_table_association" "private_route_assoc" {
   subnet_id = aws_subnet.private_subnet.id
   route_table_id = aws_route_table.private_route.id
+}
+
+# Create a NACL for app_subnet (public)
+resource "aws_network_acl" "app_subnet_nacl" {
+  vpc_id = aws_vpc.app_vpc.id
+  subnet_ids = [aws_subnet.app_subnet.id]
+
+  egress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 65535
+  }
+
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 101
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 80
+    to_port    = 80
+  }
+
+  tags = {
+    Name = "${var.name} - public subnet NACL"
+  }
+}
+
+# Create a NACL for private_subnet
+resource "aws_network_acl" "private_subnet_nacl" {
+  vpc_id = aws_vpc.app_vpc.id
+  subnet_ids = [aws_subnet.private_subnet.id]
+
+  egress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 65535
+  }
+
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 101
+    action     = "allow"
+    cidr_block = aws_subnet.app_subnet.cidr_block
+    from_port  = 80
+    to_port    = 80
+  }
+
+  tags = {
+    Name = "${var.name} - public subnet NACL"
+  }
 }
